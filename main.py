@@ -1,6 +1,8 @@
-from converter import Converter
 import logging
 import argparse
+
+from converter import Converter
+from serial_conn import SerialConnection
 
 logger = logging.getLogger()
 conv = Converter()
@@ -8,11 +10,23 @@ conv = Converter()
 
 def arguments():
     parser = argparse.ArgumentParser(prog="hpgl27221", description="Convert HPGL language to HP 7221 languange")
-    parser.add_argument("filename", help="The name or path of a file containing HPGL commands")
-    return parser.parse_args()
+    parser.add_argument("filename")
+    parser.add_argument('--serial')
+    parser.add_argument('--baud')
+    parser.add_argument('--bytesize', choices=[7,8], help="Bytesize")
+    parser.add_argument('--parity', choices=["n", "e", "o"])
+    parser.add_argument('--stopbits', choices=[1,2])
+    args = parser.parse_args()
+
+    print(args)
+
+    if args.serial and (not args.baud or not args.bytesize or not args.parity or not args.stopbits):
+        print("If a serial port is specified, the following arguments are mandatory: baud, bytesize, parity, stopbits")
+        exit()
+    return args
 
 
-def main(file_name):
+def main(file_name, serial_conn):
     with open(file_name, "r", encoding="utf-8") as file:
         source = file.readlines()
 
@@ -35,7 +49,10 @@ def main(file_name):
         if method:
             try:
                 result = method(arguments)
-                print(result)
+                if serial_conn:
+                    serial_conn.write(result)
+                else:
+                    print(result)
             except Exception as exc:
                 logger.error(f"Failed to parse line {linenumber}: {exc}")
         else:
@@ -44,4 +61,9 @@ def main(file_name):
 
 if __name__ == "__main__":
     args = arguments()
-    main(args.filename)
+    if args.serial:
+        serial = SerialConnection(args.serial, args.baud, args.bytesize, args.parity, args.stopbits)
+    else:
+        serial = None
+
+    main(args.filename, serial)
