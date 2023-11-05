@@ -1,22 +1,58 @@
 esc = bytes.fromhex("1b")
 
-
 class Converter:
-    def IN(self, args):
+    def IN(self, args: str) -> bytes:
+        # Initialize
         # Manual page 95
         return esc + ".(".encode("ASCII")
 
-    def IP(self, args):
+    def IP(self, args: str) -> bytes:
         # Manual pages 95, 100
+        if not args:
+            return b""
+        
         raise NotImplementedError("No clue how to scale yet, ignoring...")
 
-    def SP(self, args):
+    def SP(self, args) -> bytes:
+        # Select Pen
         # Manual page 94
         return b"v" + self._covert_to_sbn(args).to_bytes()
 
-    def PD(self, args):
+    def PU(self, args: str) -> bytes:
+        # Pen Up
+        # Manual page 110
+        coordinates = self._combine_pairs(args.split(","))
+        
+        output = b"p"
+        for coordinate in coordinates:
+            output += self._convert_to_mbp(*coordinate)
+        
+        output += b"}"
+
+        return output
+    def PD(self, args: str) -> bytes:
+        # Pen Down
         # Manual page 106
-        pass
+        coordinates = self._combine_pairs(args.split(","))
+        
+        output = b"q"
+        for coordinate in coordinates:
+            output += self._convert_to_mbp(*coordinate)
+        
+        output += b"}"
+
+        return output
+
+
+    def _combine_pairs(self, args: list) -> list:
+        if not (len(args) % 2) == 0:
+            raise AttributeError("Expected pairs of xy coordinates")
+
+        output = []
+        for i in range(0, len(args), 2):
+            output.append((args[i], args[i + 1]))
+
+        return output
 
     def _covert_to_sbn(self, number: int) -> int:
         # Manual page 87
@@ -33,7 +69,7 @@ class Converter:
     def _convert_to_mbn(self, number: int) -> bytes:
         # Manual page 87
         # Ported from: https://github.com/Toranktto/bsd-plotutils/blob/master/libplot/drivers/hp7221/subr.c
-        
+
         if not number.isnumeric():
             raise TypeError("Expect an integer")
         if int(number) > 32767:
@@ -70,6 +106,7 @@ class Converter:
 
         x = int(x)
         y = int(y)
+        output = b""
 
         chr = (x >> 10) & 0o17
         chr |= 0o140
